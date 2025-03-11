@@ -1,3 +1,4 @@
+*UV コマンド
 uv init: Create a new Python project.
 uv add: Add a dependency to the project.
 uv remove: Remove a dependency from the project.
@@ -7,3 +8,32 @@ uv run: Run a command in the project environment.
 uv tree: View the dependency tree for the project.
 uv build: Build the project into distribution archives.
 uv publish: Publish the project to a package index.
+
+
+＊プロジェクトセットアップ
+uv init hello-world　
+コマンドを打つと下記のようなプロジェクトフォルダが作られる
+.
+├── .python-version
+├── README.md
+├── main.py
+└── pyproject.toml
+
+uv run main.py　//プログラムを実行するコマンド
+
+
+In addition to the files created by uv init, 
+uv will create a virtual environment and uv.lock file 
+in the root of your project the first time you run a project command, 
+i.e., uv run, uv sync, or uv lock.
+.
+├── .venv
+│   ├── bin
+│   ├── lib
+│   └── pyvenv.cfg
+├── .python-version
+├── README.md
+├── main.py
+├── pyproject.toml
+└── uv.lock
+
