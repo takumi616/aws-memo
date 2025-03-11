@@ -27,7 +27,7 @@ uv will create a virtual environment and uv.lock file
 in the root of your project the first time you run a project command, 
 i.e., uv run, uv sync, or uv lock.
 .
-├── .venv
+├── .venv            //This folder is where uv will install your project's dependencies.
 │   ├── bin
 │   ├── lib
 │   └── pyvenv.cfg
@@ -37,3 +37,9 @@ i.e., uv run, uv sync, or uv lock.
 ├── pyproject.toml
 └── uv.lock
 
+uv.lock is a cross-platform lockfile that contains exact information about your project's dependencies. 
+Unlike the pyproject.toml which is used to specify the broad requirements of your project, 
+the lockfile contains the exact resolved versions that are installed in the project environment. 
+This file should be checked into version control, 
+allowing for consistent and reproducible installations across machines.
+uv.lock is a human-readable TOML file but is managed by uv and should not be edited manually.
