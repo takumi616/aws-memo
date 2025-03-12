@@ -1,8 +1,5 @@
-var (
-	ctx context.Context
-	db  *sql.DB
-)
 
+//Update sample
 func main() {
 	// A *DB is a pool of connections. Call Conn to reserve a connection for
 	// exclusive use.
@@ -23,4 +20,30 @@ func main() {
 	if rows != 1 {
 		log.Fatalf("expected single row affected, got %d rows affected", rows)
 	}
+}
+
+
+
+//Select sample 
+func main() {
+	age := 27
+	rows, err := db.QueryContext(ctx, "SELECT name FROM users WHERE age=?", age)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
+
+	names := make([]string, 0)
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			log.Fatal(err)
+		}
+		names = append(names, name)
+	}
+	// Check for errors from iterating over rows.
+	if err := rows.Err(); err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("%s are %d years old", strings.Join(names, ", "), age)
 }
