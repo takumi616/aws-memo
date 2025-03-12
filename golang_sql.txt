@@ -1,26 +1,20 @@
 
 //Update sample
-func main() {
-	// A *DB is a pool of connections. Call Conn to reserve a connection for
-	// exclusive use.
-	conn, err := db.Conn(ctx)
+	tx, err := db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer conn.Close() // Return the connection to the pool.
-	id := 41
-	result, err := conn.ExecContext(ctx, `UPDATE balances SET balance = balance + 10 WHERE user_id = ?;`, id)
-	if err != nil {
+	id := 37
+	_, execErr := tx.ExecContext(ctx, "UPDATE users SET status = ? WHERE id = ?", "paid", id)
+	if execErr != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			log.Fatalf("update failed: %v, unable to rollback: %v\n", execErr, rollbackErr)
+		}
+		log.Fatalf("update failed: %v", execErr)
+	}
+	if err := tx.Commit(); err != nil {
 		log.Fatal(err)
 	}
-	rows, err := result.RowsAffected()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if rows != 1 {
-		log.Fatalf("expected single row affected, got %d rows affected", rows)
-	}
-}
 
 
 
@@ -63,3 +57,14 @@ func main() {
 		log.Printf("username is %q, account created on %s\n", username, created)
 	}
 }
+
+
+//プールからDBコネクションを取り出すメソッド
+func (db *DB) Conn(ctx context.Context) (*Conn, error)
+
+//プールから取り出したDBコネクションが現在も有効か確認するメソッド
+func (c *Conn) PingContext(ctx context.Context) error
+
+//プールから取り出したDBコネクションを使ってトランザクションを開始するメソッド
+func (c *Conn) BeginTx(ctx context.Context, opts *TxOptions) (*Tx, error)
+
