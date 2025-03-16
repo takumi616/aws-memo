@@ -1,0 +1,136 @@
+以下に、ご要望の要件を満たす `Taskfile.yml` と関連する `docker-compose.yaml` のサンプルを示します。これにより、Golang、PostgreSQL、Dockerを使った動作環境をTaskfileで管理できます。
+
+---
+
+### `Taskfile.yml`
+
+```yaml
+version: '3'
+
+tasks:
+  # 環境全体を起動するタスク
+  up:
+    desc: Start the entire environment (Postgres, migration, and app)
+    cmds:
+      - task: start-postgres
+      - task: run-migration
+      - task: start-app
+
+  # Postgresサービスを起動するタスク
+  start-postgres:
+    desc: Start the Postgres service
+    cmds:
+      - docker-compose up -d postgres
+
+  # DBマイグレーションを実行するタスク
+  run-migration:
+    desc: Run database migrations inside the Postgres container
+    deps: [start-postgres]
+    cmds:
+      # Postgresが起動するのを待つ
+      - docker-compose exec postgres sh -c "until pg_isready; do sleep 1; done"
+      # go-migrateがインストールされているか確認し、なければインストール
+      - docker-compose exec postgres sh -c "if ! command -v migrate; then apk add --no-cache curl && curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz | tar xvz && mv migrate /usr/local/bin/; fi"
+      # マイグレーション実行（マイグレーションファイルはホストの ./migrations からマウント）
+      - docker-compose exec postgres sh -c "migrate -path /migrations -database 'postgres://user:password@localhost:5432/mydb?sslmode=disable' up"
+
+  # Appサービスを起動するタスク
+  start-app:
+    desc: Start the app service
+    deps: [run-migration]
+    cmds:
+      - docker-compose up -d app
+
+  # 環境を停止するタスク
+  down:
+    desc: Stop and remove all services
+    cmds:
+      - docker-compose down
+```
+
+---
+
+### `docker-compose.yaml`
+
+```yaml
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - DB_NAME=mydb
+
+  postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=mydb
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./migrations:/migrations # マイグレーションファイルをマウント
+
+volumes:
+  pgdata:
+```
+
+---
+
+### `Dockerfile` (app用)
+
+```dockerfile
+FROM golang:1.21
+
+WORKDIR /app
+COPY . .
+RUN go mod download
+RUN go build -o main .
+
+CMD ["./main"]
+```
+
+---
+
+### 使い方
+
+1. **前提条件**:
+   - `Taskfile.yml`、`docker-compose.yaml`、および `Dockerfile` をプロジェクトルートに配置。
+   - マイグレーションファイルを `./migrations` ディレクトリに用意（例: `0001_create_users_table.up.sql`）。
+   - Taskfile CLI (`task`) がインストールされていることを確認（インストール方法: `go install github.com/go-task/task/v3/cmd/task@latest`）。
+
+2. **環境起動**:
+   ```bash
+   task up
+   ```
+   - `start-postgres`: Postgresコンテナを起動。
+   - `run-migration`: Postgresが起動した後、コンテナ内で `go-migrate` を確認・インストールし、マイグレーションを実行。
+   - `start-app`: マイグレーション後にappコンテナを起動。
+
+3. **環境停止**:
+   ```bash
+   task down
+   ```
+
+---
+
+### 補足説明
+
+- **Postgresの起動待ち**: `pg_isready` を使ってPostgresが準備できるまで待機。
+- **go-migrateのインストール**: コンテナ内に `migrate` コマンドがない場合、公式リリースからダウンロードしてインストール。
+- **マイグレーションファイル**: `./migrations` ディレクトリをコンテナにマウントし、そこからマイグレーションを実行。
+- **依存関係**: Taskfileの `deps` を使って、タスクの実行順序を制御（Postgres → マイグレーション → app）。
+
+この構成で、要件を満たす自動化された環境が構築できます。必要に応じて、環境変数やマイグレーションパスをカスタマイズしてください。
